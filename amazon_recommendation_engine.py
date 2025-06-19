@@ -1,8 +1,7 @@
 """
 Amazon Electronics Recommendation Engine
-Enterprise-grade recommendation system using sklearn and numpy.
 
-Production recommendation system designed for high-scale customer personalization
+Enterprise-grade product recommendation system designed for high-scale customer personalization
 and revenue optimization. Built with industry-standard libraries for maximum 
 compatibility and performance in enterprise environments.
 """
@@ -18,6 +17,7 @@ import datetime
 import argparse
 from collections import defaultdict
 from pathlib import Path
+from typing import Dict, List, Tuple, Optional, Union, Any
 
 from sklearn.model_selection import train_test_split, GridSearchCV, KFold
 from sklearn.neighbors import NearestNeighbors
@@ -26,6 +26,13 @@ from sklearn.metrics import mean_squared_error
 from sklearn.metrics.pairwise import cosine_similarity, pairwise_distances
 from scipy.sparse import csr_matrix
 from scipy.spatial.distance import pdist, squareform
+
+# Type aliases for better code readability
+UserId = str
+ProductId = str
+Rating = float
+ModelMetrics = Dict[str, Union[float, int]]
+RecommendationList = List[Tuple[ProductId, Rating]]
 
 
 class CollaborativeFilteringEngine:
@@ -36,7 +43,7 @@ class CollaborativeFilteringEngine:
     optimized for scalable recommendation generation in enterprise e-commerce environments.
     """
     
-    def __init__(self, similarity_metric='cosine', n_neighbors=40, user_based=True):
+    def __init__(self, similarity_metric: str = 'cosine', n_neighbors: int = 40, user_based: bool = True) -> None:
         """
         Initialize collaborative filtering engine.
         
@@ -45,20 +52,20 @@ class CollaborativeFilteringEngine:
             n_neighbors: Number of neighbors for recommendations
             user_based: True for user-based, False for item-based filtering
         """
-        self.similarity_metric = similarity_metric
-        self.n_neighbors = n_neighbors
-        self.user_based = user_based
-        self.model = None
-        self.interaction_matrix = None
-        self.user_means = None
-        self.item_means = None
-        self.global_mean = None
-        self.user_to_idx = {}
-        self.item_to_idx = {}
-        self.idx_to_user = {}
-        self.idx_to_item = {}
+        self.similarity_metric: str = similarity_metric
+        self.n_neighbors: int = n_neighbors
+        self.user_based: bool = user_based
+        self.model: Optional[NearestNeighbors] = None
+        self.interaction_matrix: Optional[np.ndarray] = None
+        self.user_means: Optional[np.ndarray] = None
+        self.item_means: Optional[np.ndarray] = None
+        self.global_mean: Optional[float] = None
+        self.user_to_idx: Dict[UserId, int] = {}
+        self.item_to_idx: Dict[ProductId, int] = {}
+        self.idx_to_user: Dict[int, UserId] = {}
+        self.idx_to_item: Dict[int, ProductId] = {}
         
-    def _create_interaction_matrix(self, data):
+    def _create_interaction_matrix(self, data: pd.DataFrame) -> np.ndarray:
         """Create user-item interaction matrix from DataFrame."""
         unique_users = data['user_id'].unique()
         unique_items = data['prod_id'].unique()
@@ -78,7 +85,7 @@ class CollaborativeFilteringEngine:
             
         return interaction_matrix
         
-    def fit(self, data):
+    def fit(self, data: pd.DataFrame) -> 'CollaborativeFilteringEngine':
         """
         Train the collaborative filtering model.
         
@@ -122,7 +129,7 @@ class CollaborativeFilteringEngine:
         
         return self
         
-    def predict(self, user_id, item_id, verbose=False):
+    def predict(self, user_id: UserId, item_id: ProductId, verbose: bool = False) -> 'PredictionResult':
         """
         Predict rating for a user-item pair.
         
@@ -157,7 +164,7 @@ class CollaborativeFilteringEngine:
             
         return result
         
-    def _predict_rating(self, user_idx, item_idx):
+    def _predict_rating(self, user_idx: int, item_idx: int) -> float:
         """Internal method to predict rating using collaborative filtering algorithm."""
         if self.user_based:
             target_user = self.interaction_matrix[user_idx].reshape(1, -1)
@@ -225,7 +232,7 @@ class CollaborativeFilteringEngine:
         
         return np.clip(prediction, 1.0, 5.0)
         
-    def test(self, test_data):
+    def test(self, test_data: pd.DataFrame) -> List['PredictionResult']:
         """Test the model on a dataset and return predictions."""
         predictions = []
         for _, row in test_data.iterrows():
@@ -243,7 +250,8 @@ class MatrixFactorizationEngine:
     in high-dimensional customer-product interaction spaces.
     """
     
-    def __init__(self, n_factors=50, learning_rate=0.01, n_epochs=20, reg_all=0.02, random_state=42):
+    def __init__(self, n_factors: int = 50, learning_rate: float = 0.01, n_epochs: int = 20, 
+                 reg_all: float = 0.02, random_state: int = 42) -> None:
         """
         Initialize matrix factorization engine.
         
@@ -252,26 +260,29 @@ class MatrixFactorizationEngine:
             learning_rate: Learning rate for SGD
             n_epochs: Number of training epochs
             reg_all: Regularization parameter
-            random_state: necessary for reproducibility
+            random_state: Random seed for reproducibility
         """
-        self.n_factors = n_factors
-        self.learning_rate = learning_rate
-        self.n_epochs = n_epochs
-        self.reg_all = reg_all
-        self.random_state = random_state
-        self.user_factors = None
-        self.item_factors = None
-        self.user_biases = None
-        self.item_biases = None
-        self.global_mean = None
-        self.user_to_idx = {}
-        self.item_to_idx = {}
-        self.idx_to_user = {}
-        self.idx_to_item = {}
+        self.n_factors: int = n_factors
+        self.learning_rate: float = learning_rate
+        self.n_epochs: int = n_epochs
+        self.reg_all: float = reg_all
+        self.random_state: int = random_state
         
-    def fit(self, data):
+        # Create dedicated random number generator for reproducibility
+        self.rng: np.random.RandomState = np.random.RandomState(random_state)
+        
+        self.user_factors: Optional[np.ndarray] = None
+        self.item_factors: Optional[np.ndarray] = None
+        self.user_biases: Optional[np.ndarray] = None
+        self.item_biases: Optional[np.ndarray] = None
+        self.global_mean: Optional[float] = None
+        self.user_to_idx: Dict[UserId, int] = {}
+        self.item_to_idx: Dict[ProductId, int] = {}
+        self.idx_to_user: Dict[int, UserId] = {}
+        self.idx_to_item: Dict[int, ProductId] = {}
+        
+    def fit(self, data: pd.DataFrame) -> 'MatrixFactorizationEngine':
         """Use stochastic gradient descent to train the matrix factorization model."""
-        np.random.seed(self.random_state)  # Reproducible results
         unique_users = data['user_id'].unique()
         unique_items = data['prod_id'].unique()
         
@@ -283,8 +294,10 @@ class MatrixFactorizationEngine:
         n_users, n_items = len(unique_users), len(unique_items)
         
         self.global_mean = data['rating'].mean()
-        self.user_factors = np.random.normal(0, 0.1, (n_users, self.n_factors))
-        self.item_factors = np.random.normal(0, 0.1, (n_items, self.n_factors))
+        
+        # Use self.rng for all random operations to ensure reproducibility
+        self.user_factors = self.rng.normal(0, 0.1, (n_users, self.n_factors))
+        self.item_factors = self.rng.normal(0, 0.1, (n_items, self.n_factors))
         self.user_biases = np.zeros(n_users)
         self.item_biases = np.zeros(n_items)
         
@@ -296,7 +309,8 @@ class MatrixFactorizationEngine:
             training_data.append((user_idx, item_idx, rating))
         
         for epoch in range(self.n_epochs):
-            np.random.shuffle(training_data)
+            # Use self.rng.shuffle for reproducible shuffling
+            self.rng.shuffle(training_data)
             
             for user_idx, item_idx, rating in training_data:
                 prediction = (self.global_mean + 
@@ -320,7 +334,7 @@ class MatrixFactorizationEngine:
         
         return self
         
-    def predict(self, user_id, item_id, verbose=False):
+    def predict(self, user_id: UserId, item_id: ProductId, verbose: bool = False) -> 'PredictionResult':
         """Predict rating for a user-item pair."""
         if user_id not in self.user_to_idx or item_id not in self.item_to_idx:
             est = self.global_mean
@@ -344,7 +358,7 @@ class MatrixFactorizationEngine:
             
         return result
         
-    def test(self, test_data):
+    def test(self, test_data: pd.DataFrame) -> List['PredictionResult']:
         """Test the model on a dataset and return predictions."""
         predictions = []
         for _, row in test_data.iterrows():
@@ -357,11 +371,11 @@ class MatrixFactorizationEngine:
 class PredictionResult:
     """Container for recommendation prediction results."""
     
-    def __init__(self, uid, iid, est, r_ui=None):
-        self.uid = uid
-        self.iid = iid
-        self.est = est
-        self.r_ui = r_ui
+    def __init__(self, uid: UserId, iid: ProductId, est: Rating, r_ui: Optional[Rating] = None) -> None:
+        self.uid: UserId = uid
+        self.iid: ProductId = iid
+        self.est: Rating = est
+        self.r_ui: Optional[Rating] = r_ui
 
 
 class AmazonRecommendationEngine:
@@ -373,7 +387,7 @@ class AmazonRecommendationEngine:
     Designed for high-scale customer personalization and business intelligence.
     """
     
-    def __init__(self, min_user_interactions=50, min_product_interactions=5):
+    def __init__(self, min_user_interactions: int = 50, min_product_interactions: int = 5) -> None:
         """
         Initialize the recommendation engine.
         
@@ -381,12 +395,12 @@ class AmazonRecommendationEngine:
             min_user_interactions: Minimum customer interactions required
             min_product_interactions: Minimum product ratings required
         """
-        self.min_user_interactions = min_user_interactions
-        self.min_product_interactions = min_product_interactions
-        self.processed_data = None
-        self.models = {}
+        self.min_user_interactions: int = min_user_interactions
+        self.min_product_interactions: int = min_product_interactions
+        self.processed_data: Optional[pd.DataFrame] = None
+        self.models: Dict[str, Dict[str, Any]] = {}
         
-    def load_customer_data(self, file_path, has_header=True):
+    def load_customer_data(self, file_path: Union[str, Path], has_header: bool = False) -> pd.DataFrame:
         """
         Load customer interaction data from CSV file.
         
@@ -412,7 +426,7 @@ class AmazonRecommendationEngine:
         print(f"Loaded {len(data):,} customer interactions from {file_path.name}")
         return data
         
-    def filter_for_quality_recommendations(self, data):
+    def filter_for_quality_recommendations(self, data: pd.DataFrame) -> pd.DataFrame:
         """
         Filter data to ensure statistical significance and recommendation quality.
         
@@ -446,7 +460,7 @@ class AmazonRecommendationEngine:
         
         return data
         
-    def analyze_customer_behavior(self, data):
+    def analyze_customer_behavior(self, data: pd.DataFrame) -> Dict[str, Union[int, float, Dict[str, Any]]]:
         """Analyze customer behavior patterns for business insights."""
         analysis = {
             'total_interactions': len(data),
@@ -465,7 +479,8 @@ class AmazonRecommendationEngine:
         
         return analysis
         
-    def visualize_rating_distribution(self, data, save_path=None, output_dir="outputs"):
+    def visualize_rating_distribution(self, data: pd.DataFrame, save_path: Optional[Union[str, Path]] = None, 
+                                    output_dir: str = "outputs") -> None:
         """Create business intelligence visualizations for rating patterns."""
         
         output_dir = Path(output_dir)
@@ -498,7 +513,7 @@ class AmazonRecommendationEngine:
         else:
             plt.show()
             
-    def create_popularity_recommendations(self, data):
+    def create_popularity_recommendations(self, data: pd.DataFrame) -> pd.DataFrame:
         """Generate popularity-based product recommendations."""
         product_metrics = data.groupby('prod_id').agg({
             'rating': ['mean', 'count', 'std'],
@@ -512,7 +527,8 @@ class AmazonRecommendationEngine:
         
         return product_metrics
         
-    def get_top_products(self, product_metrics, n_products=5, min_ratings=50):
+    def get_top_products(self, product_metrics: pd.DataFrame, n_products: int = 5, 
+                        min_ratings: int = 50) -> List[ProductId]:
         """Identify top-performing products for business promotion."""
         qualified_products = product_metrics[
             product_metrics['total_ratings'] >= min_ratings
@@ -528,7 +544,9 @@ class AmazonRecommendationEngine:
                   
         return top_products
         
-    def calculate_recommendation_performance(self, model, test_data, k=10, threshold=3.5):
+    def calculate_recommendation_performance(self, model: Union[CollaborativeFilteringEngine, MatrixFactorizationEngine], 
+                                           test_data: pd.DataFrame, k: int = 10, 
+                                           threshold: float = 3.5) -> ModelMetrics:
         """
         Evaluate recommendation algorithm performance using business metrics.
         
@@ -592,7 +610,8 @@ class AmazonRecommendationEngine:
             'recommendations_evaluated': k
         }
         
-    def build_collaborative_filtering_engine(self, data, similarity_type='cosine', user_based=True):
+    def build_collaborative_filtering_engine(self, data: pd.DataFrame, similarity_type: str = 'cosine', 
+                                            user_based: bool = True) -> Tuple[CollaborativeFilteringEngine, pd.DataFrame]:
         """Build collaborative filtering recommendation engine."""
         train_data, test_data = train_test_split(data, test_size=0.20, random_state=42)
         
@@ -612,7 +631,7 @@ class AmazonRecommendationEngine:
         
         return model, test_data
         
-    def build_matrix_factorization_engine(self, data):
+    def build_matrix_factorization_engine(self, data: pd.DataFrame) -> Tuple[MatrixFactorizationEngine, pd.DataFrame]:
         """Build matrix factorization recommendation engine."""
         train_data, test_data = train_test_split(data, test_size=0.20, random_state=42)
         
@@ -631,7 +650,9 @@ class AmazonRecommendationEngine:
         
         return model, test_data
         
-    def generate_customer_recommendations(self, data, customer_id, model, n_recommendations=5):
+    def generate_customer_recommendations(self, data: pd.DataFrame, customer_id: UserId, 
+                                        model: Union[CollaborativeFilteringEngine, MatrixFactorizationEngine], 
+                                        n_recommendations: int = 5) -> RecommendationList:
         """Generate personalized product recommendations for a specific customer."""
         all_products = data['prod_id'].unique()
         customer_products = data[data['user_id'] == customer_id]['prod_id'].unique()
@@ -654,11 +675,10 @@ class AmazonRecommendationEngine:
             
         return top_recommendations
         
-    def run_comprehensive_analysis(self, file_path):
+    def run_comprehensive_analysis(self, file_path: Union[str, Path]) -> Dict[str, Any]:
         """Execute complete recommendation engine analysis and optimization."""
         print("=" * 70)
         print("AMAZON ELECTRONICS RECOMMENDATION ENGINE")
-        print("Enterprise-grade system using sklearn and numpy")
         print("=" * 70)
         print("Analyzing customer behavior and optimizing recommendation algorithms...\n")
         
@@ -749,7 +769,6 @@ class AmazonRecommendationEngine:
         print("ANALYSIS COMPLETE")
         print("=" * 70)
         print("Enterprise recommendation engine ready for production deployment.")
-        print("Built with sklearn and numpy for maximum compatibility and performance.")
         print("=" * 70)
         
         return {
@@ -760,7 +779,7 @@ class AmazonRecommendationEngine:
         }
 
 
-def main():
+def main() -> None:
     """
     Main execution function for enterprise recommendation engine.
     """
